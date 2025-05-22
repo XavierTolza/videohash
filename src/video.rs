@@ -11,7 +11,7 @@ fn create_output_directory(video_path: &str) -> Result<PathBuf, Box<dyn Error>> 
         .ok_or("Failed to get file stem")?
         .to_str()
         .ok_or("Failed to convert file stem to string")?;
-    let output_dir = Path::new(".").join(video_name);
+    let output_dir = std::env::temp_dir().join(video_name);
 
     if !output_dir.exists() {
         fs::create_dir(&output_dir)?;
@@ -35,16 +35,18 @@ fn get_video_duration(video_path: &str) -> Result<f64, Box<dyn Error>> {
     Ok(duration)
 }
 
-pub fn extract_frames_using_videotools(video_path: &str) -> Result<Vec<String>, Box<dyn Error>> {
+pub fn extract_frames_using_videotools(
+    video_path: &str,
+    num_frames: Option<u32>,
+) -> Result<Vec<String>, Box<dyn Error>> {
     // Construct the ffmpeg command
+    let num_frames = num_frames.unwrap_or(5); // Default to 10 frames if not provided
     let start_time = Instant::now(); // Start timing hashing/fingerprinting
 
     let output_dir = create_output_directory(video_path)?;
     let duration = get_video_duration(video_path)?;
     println!("duration:{:?}", duration);
-    let num_frames = 5; // Adjust if you want a different number of frames
     let interval = duration / num_frames as f64; // Time between frames
-                                                 // Construct the ffmpeg command
 
     // Construct the ffmpeg command
     let output_pattern = output_dir.join("output-%04d.png");
