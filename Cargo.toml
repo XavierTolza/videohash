@@ -16,7 +16,7 @@ path = "src/lib.rs"
 [dependencies]
 actix-web = "4.9.0"
 blake3 = "1.5.4"
-ffmpeg-next = "7.0.4"
+ffmpeg-next = { git = "https://github.com/XavierTolza/rust-ffmpeg.git" }
 image = "0.24"
 imagehash = "0.3.0"
 img_hash = "3.2.0"
@@ -24,4 +24,3 @@ serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 tokio = { version = "1.40.0", features = ["full"] }
 vid2img = "0.1.1"
-
