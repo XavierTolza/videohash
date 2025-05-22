@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::Write;
-use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;

@@ -1,4 +1,4 @@
-use image::{DynamicImage, GenericImageView};
+use image::DynamicImage;
 use imagehash::PerceptualHash;
 use std::time::Instant;
 pub fn compute_phash(image: &DynamicImage) -> String {
