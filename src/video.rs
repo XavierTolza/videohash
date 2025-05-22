@@ -4,7 +4,6 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::Instant;
 use vid2img::FileSource;
 
 fn create_output_directory(video_path: &str) -> Result<PathBuf, Box<dyn Error>> {
@@ -40,26 +39,35 @@ fn get_video_duration(video_path: &str) -> Result<f64, Box<dyn Error>> {
 pub fn extract_frames_using_videotools(
     video_path: &str,
     num_frames: Option<u32>,
+    quiet: bool,
 ) -> Result<Vec<String>, Box<dyn Error>> {
     // Construct the ffmpeg command
-    let num_frames = num_frames.unwrap_or(5); // Default to 10 frames if not provided
-    let start_time = Instant::now(); // Start timing hashing/fingerprinting
+    let num_frames = num_frames.unwrap_or(5); // Default to 5 frames if not provided
 
     let output_dir = create_output_directory(video_path)?;
     let duration = get_video_duration(video_path)?;
-    println!("duration:{:?}", duration);
+    if !quiet {
+        println!("duration:{:?}", duration);
+    }
     let interval = duration / num_frames as f64; // Time between frames
 
     // Construct the ffmpeg command
     let output_pattern = output_dir.join("output-%04d.png");
 
-    let status = Command::new("ffmpeg")
-        .arg("-i")
+    let mut cmd = Command::new("ffmpeg");
+    cmd.arg("-i")
         .arg(video_path)
         .arg("-vf")
-        .arg(format!("fps=1/{}", interval)) // Use the calculated interval
-        .arg(output_pattern.clone())
-        .status()?;
+        .arg(format!("fps=1/{}", interval))
+        .arg(output_pattern.clone());
+
+    // Optionally disable stdout and stderr output
+    if quiet {
+        cmd.stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+    }
+
+    let status = cmd.status()?;
 
     if !status.success() {
         return Err("ffmpeg command failed".into());
@@ -72,7 +80,7 @@ pub fn extract_frames_using_videotools(
         .unwrap()
         .to_str()
         .unwrap();
-    let frame_prefix = &frame_pattern[..frame_pattern.len() - 8]; // Assuming output pattern is output_%04d.png
+    let frame_prefix = &frame_pattern[..frame_pattern.len() - 8]; // Assuming output pattern is output-%04d.png
 
     for entry in fs::read_dir(&output_dir)? {
         let entry = entry?;
@@ -89,9 +97,6 @@ pub fn extract_frames_using_videotools(
             }
         }
     }
-    let elapsed_time = start_time.elapsed(); // Stop timing frame extraction
-
-    println!("Frame extraction completed in {:?}", elapsed_time);
 
     Ok(frame_paths)
 }

@@ -22,7 +22,7 @@ pub struct HashResponse {
 // pHash API
 #[get("/phash")]
 pub async fn phash_api(query: web::Query<VideoUrl>) -> impl Responder {
-    match video::extract_frames_using_videotools(&query.video_url, None) {
+    match video::extract_frames_using_videotools(&query.video_url, None, false) {
         Ok(frame_paths) => {
             let mut hashes = Vec::new();
             for frame_path in frame_paths {
@@ -46,7 +46,7 @@ pub async fn phash_api(query: web::Query<VideoUrl>) -> impl Responder {
 // dHash API
 #[get("/dhash")]
 pub async fn dhash_api(query: web::Query<VideoUrl>) -> impl Responder {
-    match extract_frames_using_videotools(&query.video_url, None) {
+    match extract_frames_using_videotools(&query.video_url, None, false) {
         Ok(frame_paths) => {
             let mut hashes = Vec::new();
             for frame_path in frame_paths {
