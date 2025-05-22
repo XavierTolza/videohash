@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::Write;
@@ -5,13 +6,14 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
 use vid2img::FileSource;
+
 fn create_output_directory(video_path: &str) -> Result<PathBuf, Box<dyn Error>> {
-    let video_name = Path::new(video_path)
-        .file_stem()
-        .ok_or("Failed to get file stem")?
+    let canonical_path = fs::canonicalize(video_path)?;
+    let path_str = canonical_path
         .to_str()
-        .ok_or("Failed to convert file stem to string")?;
-    let output_dir = std::env::temp_dir().join(video_name);
+        .ok_or("Invalid UTF-8 in video path")?;
+    let video_hash = hex::encode(Sha256::digest(path_str.as_bytes()));
+    let output_dir = std::env::temp_dir().join(format!("videohash_{}", video_hash));
 
     if !output_dir.exists() {
         fs::create_dir(&output_dir)?;
