@@ -36,20 +36,18 @@ fn get_video_duration(video_path: &str) -> Result<f64, Box<dyn Error>> {
     Ok(duration)
 }
 
-pub fn extract_frames_using_videotools(
+pub fn extract_frames_using_videotools<const NUM_FRAMES: usize>(
     video_path: &str,
-    num_frames: Option<u32>,
     quiet: bool,
-) -> Result<Vec<String>, Box<dyn Error>> {
+) -> Result<[String; NUM_FRAMES], Box<dyn Error>> {
     // Construct the ffmpeg command
-    let num_frames = num_frames.unwrap_or(5); // Default to 5 frames if not provided
 
     let output_dir = create_output_directory(video_path)?;
     let duration = get_video_duration(video_path)?;
     if !quiet {
         println!("duration:{:?}", duration);
     }
-    let interval = duration / num_frames as f64; // Time between frames
+    let interval = duration / (NUM_FRAMES as f64); // Time between frames
 
     // Construct the ffmpeg command
     let output_pattern = output_dir.join("output-%04d.png");
@@ -98,8 +96,12 @@ pub fn extract_frames_using_videotools(
         }
     }
 
-    Ok(frame_paths)
+    let nframes_found = frame_paths.len();
+    Ok(frame_paths
+        .try_into()
+        .unwrap_or_else(|_| panic!("Expected {} frames, but got {}", NUM_FRAMES, nframes_found)))
 }
+
 // Function to extract frames from the video and save them as PNGs
 pub fn extract_frames(video_path: &str, interval_sec: u64) -> Result<Vec<String>, Box<dyn Error>> {
     let file_path = Path::new(video_path);
