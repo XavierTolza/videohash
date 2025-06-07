@@ -8,6 +8,7 @@
 *.dylib
 *.o
 *.a
+*.mp4
 
 # Ignore log files
 *.log

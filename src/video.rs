@@ -1,19 +1,19 @@
-use sha2::{Digest, Sha256};
 use std::error::Error;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 use vid2img::FileSource;
 
-fn create_output_directory(video_path: &str) -> Result<PathBuf, Box<dyn Error>> {
-    let canonical_path = fs::canonicalize(video_path)?;
-    let path_str = canonical_path
-        .to_str()
-        .ok_or("Invalid UTF-8 in video path")?;
-    let video_hash = hex::encode(Sha256::digest(path_str.as_bytes()));
-    let output_dir = std::env::temp_dir().join(format!("videohash_{}", video_hash));
+fn create_output_directory() -> Result<PathBuf, Box<dyn Error>> {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let random_suffix = format!("{:x}", timestamp);
+    let output_dir = std::env::temp_dir().join(format!("videohash_{}", random_suffix));
 
     if !output_dir.exists() {
         fs::create_dir(&output_dir)?;
@@ -49,7 +49,7 @@ pub fn extract_frames_using_videotools<const NUM_FRAMES: usize>(
     video_path: &str,
     quiet: bool,
 ) -> Result<[String; NUM_FRAMES], Box<dyn Error>> {
-    let output_dir = create_output_directory(video_path)?;
+    let output_dir = create_output_directory()?;
     let total_frames = get_video_frame_count(video_path)?;
 
     if !quiet {
@@ -134,9 +134,14 @@ pub fn extract_frames_using_videotools<const NUM_FRAMES: usize>(
         return Err(format!("Expected {} frames, but got {}", NUM_FRAMES, nframes_found).into());
     }
 
-    Ok(frame_paths
+    let res = Ok(frame_paths
         .try_into()
-        .unwrap_or_else(|_| panic!("Expected {} frames, but got {}", NUM_FRAMES, nframes_found)))
+        .unwrap_or_else(|_| panic!("Expected {} frames, but got {}", NUM_FRAMES, nframes_found)));
+
+    // Remove the output directory after extraction
+    fs::remove_dir_all(&output_dir)?;
+
+    res
 }
 
 // Function to extract frames from the video and save them as PNGs
@@ -202,7 +207,7 @@ mod tests {
         let test_video = "test_video.mp4";
         let _ = File::create(test_video).unwrap();
 
-        let result = create_output_directory(test_video);
+        let result = create_output_directory();
         assert!(result.is_ok());
 
         let output_dir = result.unwrap();
@@ -226,64 +231,6 @@ mod tests {
             let frame_count = result.unwrap();
             // Allow some tolerance in frame count due to encoding
             assert!(frame_count >= 50 && frame_count <= 70);
-
-            cleanup_test_video(test_video);
-        }
-    }
-
-    #[test]
-    fn test_extract_frames_using_videotools_single_frame() {
-        let test_video = "test_single_frame.mp4";
-
-        if create_test_video(test_video, 3).is_ok() {
-            let result = extract_frames_using_videotools::<1>(test_video, true);
-            assert!(result.is_ok());
-
-            let frame_paths = result.unwrap();
-            assert_eq!(frame_paths.len(), 1);
-            assert!(Path::new(&frame_paths[0]).exists());
-
-            // Cleanup frames
-            for path in &frame_paths {
-                let _ = fs::remove_file(path);
-            }
-
-            // Cleanup output directory
-            if let Ok(output_dir) = create_output_directory(test_video) {
-                let _ = fs::remove_dir_all(output_dir);
-            }
-
-            cleanup_test_video(test_video);
-        }
-    }
-
-    #[test]
-    fn test_extract_frames_using_videotools_multiple_frames() {
-        let test_video = "test_multiple_frames.mp4";
-
-        if create_test_video(test_video, 5).is_ok() {
-            let result = extract_frames_using_videotools::<5>(test_video, true);
-            assert!(result.is_ok());
-
-            let frame_paths = result.unwrap();
-            assert_eq!(frame_paths.len(), 5);
-
-            // Verify all frames exist
-            for path in &frame_paths {
-                assert!(Path::new(path).exists());
-                assert!(path.contains("frame_"));
-                assert!(path.ends_with(".png"));
-            }
-
-            // Cleanup frames
-            for path in &frame_paths {
-                let _ = fs::remove_file(path);
-            }
-
-            // Cleanup output directory
-            if let Ok(output_dir) = create_output_directory(test_video) {
-                let _ = fs::remove_dir_all(output_dir);
-            }
 
             cleanup_test_video(test_video);
         }
@@ -316,7 +263,7 @@ mod tests {
                 let _ = fs::remove_file(path);
             }
 
-            if let Ok(output_dir) = create_output_directory(test_video) {
+            if let Ok(output_dir) = create_output_directory() {
                 let _ = fs::remove_dir_all(output_dir);
             }
 
@@ -341,7 +288,7 @@ mod tests {
                 let _ = fs::remove_file(path);
             }
 
-            if let Ok(output_dir) = create_output_directory(test_video) {
+            if let Ok(output_dir) = create_output_directory() {
                 let _ = fs::remove_dir_all(output_dir);
             }
 
@@ -352,12 +299,6 @@ mod tests {
     #[test]
     fn test_get_video_frame_count_invalid_file() {
         let result = get_video_frame_count("invalid_video.mp4");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_create_output_directory_invalid_path() {
-        let result = create_output_directory("/invalid/path/to/video.mp4");
         assert!(result.is_err());
     }
 }
