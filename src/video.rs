@@ -134,14 +134,9 @@ pub fn extract_frames_using_videotools<const NUM_FRAMES: usize>(
         return Err(format!("Expected {} frames, but got {}", NUM_FRAMES, nframes_found).into());
     }
 
-    let res = Ok(frame_paths
+    Ok(frame_paths
         .try_into()
-        .unwrap_or_else(|_| panic!("Expected {} frames, but got {}", NUM_FRAMES, nframes_found)));
-
-    // Remove the output directory after extraction
-    fs::remove_dir_all(&output_dir)?;
-
-    res
+        .unwrap_or_else(|_| panic!("Expected {} frames, but got {}", NUM_FRAMES, nframes_found)))
 }
 
 // Function to extract frames from the video and save them as PNGs
@@ -231,6 +226,64 @@ mod tests {
             let frame_count = result.unwrap();
             // Allow some tolerance in frame count due to encoding
             assert!(frame_count >= 50 && frame_count <= 70);
+
+            cleanup_test_video(test_video);
+        }
+    }
+
+    #[test]
+    fn test_extract_frames_using_videotools_single_frame() {
+        let test_video = "test_single_frame.mp4";
+
+        if create_test_video(test_video, 3).is_ok() {
+            let result = extract_frames_using_videotools::<1>(test_video, true);
+            assert!(result.is_ok());
+
+            let frame_paths = result.unwrap();
+            assert_eq!(frame_paths.len(), 1);
+            assert!(Path::new(&frame_paths[0]).exists());
+
+            // Cleanup frames
+            for path in &frame_paths {
+                let _ = fs::remove_file(path);
+            }
+
+            // Cleanup output directory
+            if let Ok(output_dir) = create_output_directory() {
+                let _ = fs::remove_dir_all(output_dir);
+            }
+
+            cleanup_test_video(test_video);
+        }
+    }
+
+    #[test]
+    fn test_extract_frames_using_videotools_multiple_frames() {
+        let test_video = "test_multiple_frames.mp4";
+
+        if create_test_video(test_video, 5).is_ok() {
+            let result = extract_frames_using_videotools::<5>(test_video, true);
+            assert!(result.is_ok());
+
+            let frame_paths = result.unwrap();
+            assert_eq!(frame_paths.len(), 5);
+
+            // Verify all frames exist
+            for path in &frame_paths {
+                assert!(Path::new(path).exists());
+                assert!(path.contains("frame_"));
+                assert!(path.ends_with(".png"));
+            }
+
+            // Cleanup frames
+            for path in &frame_paths {
+                let _ = fs::remove_file(path);
+            }
+
+            // Cleanup output directory
+            if let Ok(output_dir) = create_output_directory() {
+                let _ = fs::remove_dir_all(output_dir);
+            }
 
             cleanup_test_video(test_video);
         }
